@@ -1,0 +1,117 @@
+# docker-compose.yml
+version: "3.8"
+services:
+  analysis-controller:
+    container_name: analysis-controller
+    hostname: analysis-controller
+    build:
+      context: analyser
+      dockerfile: Dockerfile
+    restart: on-failure
+    networks: 
+      - analysis-network
+    environment:
+      - PORT=9000
+      - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://user:password@mongo:27017
+      - MONGODB_HOST=mongo
+      - MONGODB_PORT=27017
+      - MONGODB_USERNAME=user
+      - MONGODB_PASSWORD=password
+      - ANALYSIS_PUBLICATION_TASK=portfolio-analysis-queue
+      - TIMESERIES_PUBLICATION_TASK=portfolio-timeseries-queue
+      - ANALYSIS_DATABASE=analysis
+      - ANALYSIS_COLLECTION=analysis
+      - TIMESERIES_COLLECTION=timeseries
+    expose:
+      - 9000
+    ports:
+      - 9000:9000
+    volumes:
+      - ./analyser/src/:/var/www/analysis-app/src:cached
+  analysis-worker:
+    container_name: analysis-worker
+    hostname: analysis-worker
+    build:
+      context: analysis
+      dockerfile: Dockerfile
+      target: dev
+    restart: on-failure
+    networks:
+      - analysis-network
+    environment:
+      - PORT=8181
+      - CONTROLLER_HOST=analysis-controller
+      - CONTROLLER_PORT=9000
+      - IEX_HOST=iex
+      - IEX_PORT=9090
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NATS_URI=nats://nats:4222
+      - ANALYSIS_SUBSCRIPTION_TASK=portfolio-analysis-queue
+      - ANALYSIS_PUBLICATION_ENDPOINT=publish-analysis-result
+      - TIMESERIES_SUBSCRIPTION_TASK=portfolio-timeseries-queue
+      - TIMESERIES_PUBLICATION_ENDPOINT=publish-timeseries-result
+    expose:
+      - 8181
+    volumes:
+      - ./analysis/src/:/var/www/analysis-app/src:cached
+  iex:
+    container_name: iex
+    hostname: iex
+    build:
+      context: iex
+      dockerfile: Dockerfile
+    restart: on-failure
+    networks:
+      - analysis-network
+    environment:
+      - IEX_CLOUD_ENDPOINT=https://cloud.iexapis.com/stable
+      - PORT=9090
+      - REDIS_URL=redis://redis:6379
+    expose:
+      - 9090
+    volumes:
+      - ./iex/src:/var/www/analysis-app/src:cached
+  nats:
+    container_name: nats
+    hostname: nats
+    image: nats:latest
+    networks:
+      - analysis-network
+    expose:
+      - 4222
+    ports:
+      - 8222:8222
+  mongo:
+    container_name: mongo
+    hostname: mongo
+    image: mongo:latest
+    networks:
+      - analysis-network
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=user
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    ports:
+      - 27017:27017
+    volumes:
+      - analysis-mongo-data:/data
+  redis:
+    container_name: redis
+    hostname: redis
+    image: redis:latest
+    networks:
+      - analysis-network
+    ports: 
+      - 6379:6379
+    volumes:
+      - analysis-redis-data:/data
+
+networks:
+  analysis-network:
+    driver: bridge
+
+volumes:
+  analysis-mongo-data:
+  analysis-redis-data:

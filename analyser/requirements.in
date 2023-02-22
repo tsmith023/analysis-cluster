@@ -1,0 +1,7 @@
+aioredis
+fastapi
+motor
+nats-py
+python-dateutil
+pytest
+uvicorn[standard]

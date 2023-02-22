@@ -1,0 +1,9 @@
+aiohttp
+aiometer
+arioredis
+fastapi
+python-dateutil
+python-dotenv
+pytest-mock
+requests # needed to run sync pytests on FastAPI TestClient
+uvicorn[standard]
